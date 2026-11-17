@@ -21,10 +21,13 @@ $('storeBtn').textContent = CONFIG.storeButtonText;
 const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\/|everytimeApp|DaumApps/i.test(navigator.userAgent);
 if (IN_APP && !PREVIEW) show('inapp');
 
-function showError(title, text) {
+function showError(title, text, err) {
   hide('loading'); hide('hint'); hide('start');
   $('errorTitle').textContent = title;
   $('errorText').textContent = text;
+  const detail = err ? [err.name, err.message].filter(Boolean).join(': ') || String(err) : '';
+  $('errorDetail').textContent = detail ? '오류 정보: ' + detail : '';
+  if (err) console.error(err);
   show('error');
 }
 
@@ -440,21 +443,58 @@ function tick() {
 //  AR 모드 (MindAR)
 // ------------------------------------------------------------
 async function startAR() {
-  // 인식 파일이 있는지 먼저 확인
-  try {
-    const res = await fetch(CONFIG.targetSrc, { method: 'HEAD' });
-    if (!res.ok) throw new Error('missing');
-  } catch (e) {
-    showError('엽서 인식 파일이 없어요',
-      `${CONFIG.targetSrc} 파일을 찾을 수 없어요.\nMindAR 컴파일러로 엽서 이미지를 변환해서\nassets 폴더에 targets.mind 로 넣어 주세요.`);
+  // 1) 이 브라우저에서 카메라를 쓸 수 있는지
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showError('이 화면에서는 카메라를 쓸 수 없어요',
+      IN_APP
+        ? '앱 안의 브라우저라서 카메라가 막혀 있어요.\n오른쪽 위 메뉴에서 "다른 브라우저로 열기"를 눌러\n사파리나 크롬에서 열어 주세요.'
+        : '사파리(아이폰)나 크롬(안드로이드)에서 열어 주세요.\n주소가 https:// 로 시작하는지도 확인해 주세요.');
     return;
   }
 
+  // 2) 카메라 권한을 먼저 받아서 정확한 원인을 알려 주기
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment' } });
+    s.getTracks().forEach((t) => t.stop());
+  } catch (e) {
+    const name = e && e.name;
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      showError('카메라 권한이 필요해요',
+        '카메라 허용을 거절해서 켤 수 없어요.\n\n아이폰: 주소창 왼쪽 "가가" 버튼 → 웹사이트 설정 → 카메라 → 허용\n그다음 새로고침해 주세요.\n\n안드로이드 크롬: 주소창 왼쪽 자물쇠 → 권한 → 카메라 허용', e);
+    } else if (name === 'NotReadableError' || name === 'AbortError') {
+      showError('카메라가 사용 중이에요', '다른 앱이나 다른 탭이 카메라를 쓰고 있어요.\n그 앱을 닫고 다시 시도해 주세요.', e);
+    } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+      showError('카메라를 찾을 수 없어요', '카메라가 있는 폰에서 열어 주세요.', e);
+    } else {
+      showError('카메라를 켤 수 없어요', '사파리(아이폰)나 크롬(안드로이드)에서 다시 열어 주세요.', e);
+    }
+    return;
+  }
+
+  // 3) 엽서 인식 파일 확인
+  try {
+    const res = await fetch(CONFIG.targetSrc, { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const head = new Uint8Array(await res.arrayBuffer());
+    if (head.length < 100) throw new Error('파일이 너무 작아요 (' + head.length + ' bytes)');
+    if (head[0] === 0x50 && head[1] === 0x4b) {
+      showError('엽서 인식 파일이 압축된 상태예요',
+        'targets.zip 의 압축을 풀어서 나온 targets.mind 파일을\nassets 폴더에 올려 주세요.');
+      return;
+    }
+    if (head[0] === 0x3c) throw new Error('mind 파일이 아니라 웹페이지(HTML)가 받아졌어요');
+  } catch (e) {
+    showError('엽서 인식 파일이 없어요',
+      `${CONFIG.targetSrc} 파일을 찾을 수 없어요.\n엽서 인식 파일 만들기에서 받은 targets.mind 를\nassets 폴더에 올려 주세요.`, e);
+    return;
+  }
+
+  // 4) AR 엔진 불러오기
   let MindARThree;
   try {
     ({ MindARThree } = await import('mindar-image-three'));
   } catch (e) {
-    showError('불러오기 실패', '인터넷 연결을 확인하고 다시 시도해 주세요.');
+    showError('불러오기 실패', '인터넷 연결을 확인하고 다시 시도해 주세요.', e);
     return;
   }
 
@@ -480,11 +520,8 @@ async function startAR() {
   try {
     await mindar.start();
   } catch (e) {
-    const denied = e && (e.name === 'NotAllowedError' || /permission|denied/i.test(String(e.message || e)));
-    showError(denied ? '카메라 권한이 필요해요' : '카메라를 켤 수 없어요',
-      denied
-        ? '브라우저 설정에서 이 사이트의 카메라 권한을 허용한 뒤\n다시 시도해 주세요.\n(아이폰: 설정 → Safari → 카메라 → 허용)'
-        : '다른 앱이 카메라를 쓰고 있지 않은지 확인하고,\n사파리나 크롬에서 열어 주세요.');
+    showError('엽서 인식을 시작할 수 없어요',
+      '카메라는 켜졌지만 엽서 인식 파일을 읽지 못했어요.\ntargets.mind 를 엽서 인식 파일 만들기에서 다시 만들어\nassets 폴더에 올려 주세요.', e);
     return;
   }
 
