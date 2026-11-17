@@ -150,6 +150,7 @@ const HOLO_FRAG = /* glsl */`
   uniform float uFlicker;
   uniform float uGlitch;
   uniform float uGlitchBoost;
+  uniform float uPacked;
   varying vec2 vUv;
 
   float hash(float n) { return fract(sin(n) * 43758.5453123); }
@@ -162,16 +163,21 @@ const HOLO_FRAG = /* glsl */`
     float band = step(0.55, hash(floor(uv.y * 24.0) + floor(uTime * 30.0)));
     uv.x += (hash(floor(uv.y * 60.0) + floor(uTime * 40.0)) - 0.5) * 0.05 * g * band;
 
+    // 알파 패킹 영상: 위쪽 절반 = 색, 아래쪽 절반 = 투명도 마스크
+    vec2 cuv = uPacked > 0.5 ? vec2(uv.x, 0.5 + uv.y * 0.5) : uv;
+    vec2 auv = vec2(uv.x, uv.y * 0.5);
+
     // 색수차
     vec2 ca = vec2(0.006 * g, 0.0);
     vec3 col;
-    col.r = texture2D(uVideo, uv + ca).r;
-    col.g = texture2D(uVideo, uv).g;
-    col.b = texture2D(uVideo, uv - ca).b;
+    col.r = texture2D(uVideo, cuv + ca).r;
+    col.g = texture2D(uVideo, cuv).g;
+    col.b = texture2D(uVideo, cuv - ca).b;
 
-    // 검은 배경은 투명하게
+    // 투명 처리: 마스크가 있으면 마스크, 없으면 검은색을 투명하게
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
-    float keep = smoothstep(uBlackCut, uBlackCut + 0.08, lum);
+    float maskA = texture2D(uVideo, auv).r;
+    float keep = uPacked > 0.5 ? maskA : smoothstep(uBlackCut, uBlackCut + 0.08, lum);
 
     // 홀로그램 색조
     vec3 holo = uTint * (lum * 1.25 + 0.04);
@@ -194,10 +200,18 @@ const HOLO_FRAG = /* glsl */`
     float rd = (vUv.y - line) * 70.0;
     float revealEdge = exp(-rd * rd) * (1.0 - step(0.999, uReveal));
 
-    vec3 outc = col * uBrightness * scan * sweep * flick * keep * edge * shown;
-    outc += uTint * revealEdge * 0.9 * edge;
-
-    gl_FragColor = vec4(outc * uOpacity, 1.0);
+    if (uPacked > 0.5) {
+      // 실제 투명도: 배경은 비치고, 형상은 살짝 반투명하게 빛나는 홀로그램
+      vec3 c = col * uBrightness * sweep + uTint * 0.12;
+      float a = keep * (0.80 + 0.20 * scan) * flick * edge * shown * uOpacity;
+      c += uTint * revealEdge * 0.9;
+      a = max(a, revealEdge * edge * 0.9 * uOpacity);
+      gl_FragColor = vec4(c, a);
+    } else {
+      vec3 outc = col * uBrightness * scan * sweep * flick * keep * edge * shown;
+      outc += uTint * revealEdge * 0.9 * edge;
+      gl_FragColor = vec4(outc * uOpacity, 1.0);
+    }
   }
 `;
 
@@ -266,8 +280,10 @@ const holoMat = new THREE.ShaderMaterial({
     uFlicker: { value: H.flicker },
     uGlitch: { value: H.glitch },
     uGlitchBoost: { value: 0 },
+    uPacked: { value: CONFIG.alphaPacked ? 1 : 0 },
   },
   ...additive,
+  ...(CONFIG.alphaPacked ? { blending: THREE.NormalBlending } : {}),
 });
 
 const beamMat = new THREE.ShaderMaterial({
@@ -605,7 +621,9 @@ $('startBtn').addEventListener('click', async () => {
 
   await unlock;
   await waitForMetadata();
-  if (video.videoWidth && video.videoHeight) videoAspect = video.videoWidth / video.videoHeight;
+  if (video.videoWidth && video.videoHeight) {
+    videoAspect = video.videoWidth / (video.videoHeight / (CONFIG.alphaPacked ? 2 : 1));
+  }
   layoutHologram();
 
   if (PREVIEW) startPreview();

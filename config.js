@@ -20,6 +20,9 @@ export const CONFIG = {
   // true면 카메라 없이 미리보기 모드로 열려요 (주소 끝에 #preview 를 붙여도 같아요)
   forcePreview: false,
 
+  // true = 영상 아래쪽 절반에 투명도 마스크가 들어 있는 영상이에요 (배경이 진짜 투명해져요)
+  alphaPacked: true,
+
   // 엽서를 화면에서 놓쳐도 영상을 화면에 띄운 채 끝까지 재생
   keepPlayingWhenLost: true,
   // 엽서를 놓친 뒤 몇 초 지나면 화면 고정 모드로 바꿀지
