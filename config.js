@@ -8,14 +8,14 @@ export const CONFIG = {
   targetSrc: './assets/targets.mind',
 
   // 산타 영상 (검은 배경, H.264 MP4 권장)
-  videoSrc: './assets/santa.mp4?v=20261117c',
+  videoSrc: './assets/santa.mp4?v=20261117d',
 
   // 미리보기 화면에 쓰는 엽서 이미지
   postcardImage: './assets/postcard.jpg',
 
-  // 영상이 끝나면 나오는 "문의하기" 버튼 링크
-  storeUrl: 'https://smartstore.naver.com/',
-  storeButtonText: '스마트스토어 문의하기',
+  // (문의하기 버튼은 사용하지 않아요)
+  storeUrl: '',
+  storeButtonText: '',
 
   // true면 카메라 없이 미리보기 모드로 열려요 (주소 끝에 #preview 를 붙여도 같아요)
   forcePreview: false,

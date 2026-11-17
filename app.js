@@ -2,7 +2,7 @@
 // MindAR(이미지 인식) + three.js(홀로그램 렌더링)
 
 import * as THREE from 'three';
-import { CONFIG } from './config.js?v=20261117c';
+import { CONFIG } from './config.js?v=20261117d';
 
 const H = CONFIG.hologram;
 const $ = (id) => document.getElementById(id);
@@ -15,8 +15,8 @@ const PREVIEW = CONFIG.forcePreview || location.hash === '#preview';
 //  UI 준비
 // ------------------------------------------------------------
 $('cardThumb').style.backgroundImage = `url("${CONFIG.postcardImage}")`;
-$('storeBtn').href = CONFIG.storeUrl;
-$('storeBtn').textContent = CONFIG.storeButtonText;
+const storeBtn = $('storeBtn');
+if (storeBtn) { storeBtn.href = CONFIG.storeUrl; storeBtn.textContent = CONFIG.storeButtonText; }
 
 const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\/|everytimeApp|DaumApps/i.test(navigator.userAgent);
 if (IN_APP && !PREVIEW) show('inapp');
