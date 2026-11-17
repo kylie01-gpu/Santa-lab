@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05080d" />
+  <title>산타 연구소 홀로그램</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+      "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+  </script>
+  <style>
+    :root {
+      --holo: #8fe6ff;
+      --holo-dim: rgba(143, 230, 255, 0.35);
+      --bg: #05080d;
+      --text: #eaf8ff;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      background: var(--bg); color: var(--text);
+      font-family: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", sans-serif;
+    }
+    #stage { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; }
+    #stage canvas, #stage video { position: absolute; }
+
+    .layer { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+    .hidden { display: none !important; }
+
+    /* ---------- start screen ---------- */
+    #start {
+      padding: calc(24px + var(--safe-top)) 24px calc(24px + var(--safe-bottom));
+      background: radial-gradient(120% 80% at 50% 0%, #0f2533 0%, var(--bg) 60%);
+      text-align: center; gap: 18px;
+    }
+    #start .lab { font-family: "Gowun Dodum", sans-serif; letter-spacing: .2em; font-size: 12px; color: var(--holo); opacity: .8; }
+    #start h1 { font-family: "Gowun Dodum", sans-serif; font-weight: 400; font-size: 24px; line-height: 1.45; margin: 0; }
+    #start .card {
+      width: min(78vw, 360px); aspect-ratio: 2067 / 1358; border-radius: 10px;
+      background: #111 center / cover no-repeat;
+      box-shadow: 0 0 0 1px var(--holo-dim), 0 0 40px rgba(143,230,255,.18);
+    }
+    #start p { margin: 0; font-size: 14px; line-height: 1.6; opacity: .75; }
+    .btn {
+      appearance: none; border: 1px solid var(--holo); color: var(--bg); background: var(--holo);
+      font: 700 17px "Noto Sans KR", sans-serif; padding: 15px 28px; border-radius: 999px; min-width: 220px;
+      box-shadow: 0 0 24px rgba(143,230,255,.45); cursor: pointer;
+    }
+    .btn.ghost { background: transparent; color: var(--holo); box-shadow: none; }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .45; box-shadow: none; }
+    #inapp {
+      font-size: 13px; line-height: 1.5; padding: 10px 14px; border-radius: 10px;
+      background: rgba(255, 200, 80, .12); border: 1px solid rgba(255, 200, 80, .5); color: #ffe2a6; max-width: 360px;
+    }
+
+    /* ---------- loading / hint ---------- */
+    #loading { pointer-events: none; gap: 14px; font-size: 14px; }
+    .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--holo-dim); border-top-color: var(--holo); animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #hint { pointer-events: none; }
+    #hint .frame {
+      width: min(80vw, 420px); aspect-ratio: 2067 / 1358; position: relative;
+      animation: breathe 2.2s ease-in-out infinite;
+    }
+    #hint .frame i { position: absolute; width: 34px; height: 34px; border: 3px solid var(--holo); }
+    #hint .frame i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-radius: 10px 0 0 0; }
+    #hint .frame i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-radius: 0 10px 0 0; }
+    #hint .frame i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 10px; }
+    #hint .frame i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-radius: 0 0 10px 0; }
+    #hint .msg { margin-top: 22px; padding: 10px 16px; border-radius: 999px; background: rgba(5,8,13,.6); font-size: 15px; }
+    @keyframes breathe { 50% { transform: scale(1.03); opacity: .75; } }
+
+    /* ---------- subtitles ---------- */
+    #subtitle {
+      position: fixed; left: 50%; bottom: calc(28px + var(--safe-bottom)); transform: translateX(-50%);
+      width: min(92vw, 560px); text-align: center; z-index: 12; pointer-events: none;
+      font-size: 17px; line-height: 1.5; font-weight: 700; color: #fff;
+      text-shadow: 0 0 6px rgba(0,0,0,.9), 0 0 14px rgba(0,0,0,.8);
+    }
+    #subtitle span { background: rgba(5, 8, 13, .55); padding: 4px 10px; border-radius: 8px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+    /* ---------- top controls ---------- */
+    #controls { position: fixed; top: calc(12px + var(--safe-top)); right: 12px; z-index: 13; display: flex; gap: 8px; }
+    .icon-btn {
+      width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--holo-dim);
+      background: rgba(5,8,13,.55); color: var(--holo); font-size: 18px; display: grid; place-items: center; cursor: pointer;
+    }
+
+    /* ---------- end screen ---------- */
+    #end { gap: 12px; background: rgba(5, 8, 13, .55); text-align: center; padding: 24px; }
+    #end h2 { font-family: "Gowun Dodum", sans-serif; font-weight: 400; font-size: 22px; margin: 0 0 8px; }
+
+    /* ---------- error ---------- */
+    #error { gap: 16px; padding: 28px; text-align: center; background: var(--bg); }
+    #error h2 { margin: 0; font-size: 20px; }
+    #error p { margin: 0; font-size: 14px; line-height: 1.7; opacity: .8; white-space: pre-line; }
+
+    /* ---------- preview tools ---------- */
+    #previewBar {
+      position: fixed; left: 50%; top: calc(14px + var(--safe-top)); transform: translateX(-50%);
+      z-index: 13; display: flex; gap: 8px; align-items: center; font-size: 12px;
+      background: rgba(5,8,13,.6); border: 1px solid var(--holo-dim); padding: 6px 8px 6px 12px; border-radius: 999px;
+    }
+    #previewBar button { font: 12px "Noto Sans KR", sans-serif; color: var(--holo); background: transparent; border: 1px solid var(--holo-dim); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <section id="start" class="layer">
+    <div class="lab">SANTA LAB · HOLOGRAM</div>
+    <h1>산타 연구소에서<br />메시지가 도착했어요</h1>
+    <div class="card" id="cardThumb"></div>
+    <p>버튼을 누르고 엽서를 카메라로 비춰 주세요.<br />소리를 켜면 산타 목소리가 들려요.</p>
+    <div id="inapp" class="hidden">앱 안의 브라우저에서는 카메라가 안 될 수 있어요.<br />오른쪽 위 메뉴에서 <b>다른 브라우저로 열기</b>를 눌러 주세요.</div>
+    <button class="btn" id="startBtn">🎅 산타 부르기</button>
+  </section>
+
+  <section id="loading" class="layer hidden">
+    <div class="spinner"></div>
+    <div id="loadingText">카메라를 켜는 중…</div>
+  </section>
+
+  <section id="hint" class="layer hidden">
+    <div class="frame"><i></i><i></i><i></i><i></i></div>
+    <div class="msg">엽서 전체가 화면에 들어오게 비춰 주세요</div>
+  </section>
+
+  <div id="subtitle" class="hidden"><span></span></div>
+
+  <div id="controls" class="hidden">
+    <button class="icon-btn" id="muteBtn" aria-label="소리 켜기/끄기">🔊</button>
+  </div>
+
+  <section id="end" class="layer hidden">
+    <h2>메리 크리스마스! 🎄</h2>
+    <button class="btn" id="replayBtn">다시 보기</button>
+    <a class="btn ghost" id="storeBtn" href="#" target="_blank" rel="noopener">스마트스토어 문의하기</a>
+  </section>
+
+  <section id="error" class="layer hidden">
+    <h2 id="errorTitle">문제가 생겼어요</h2>
+    <p id="errorText"></p>
+    <button class="btn" onclick="location.reload()">다시 시도</button>
+  </section>
+
+  <div id="previewBar" class="hidden">
+    미리보기
+    <button id="simLost">엽서 놓치기</button>
+    <button id="simFound">엽서 다시 찾기</button>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
