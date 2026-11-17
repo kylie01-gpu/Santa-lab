@@ -8,7 +8,7 @@ export const CONFIG = {
   targetSrc: './assets/targets.mind',
 
   // 산타 영상 (검은 배경, H.264 MP4 권장)
-  videoSrc: './assets/santa.mp4',
+  videoSrc: './assets/santa.mp4?v=20261117c',
 
   // 미리보기 화면에 쓰는 엽서 이미지
   postcardImage: './assets/postcard.jpg',

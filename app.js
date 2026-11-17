@@ -2,7 +2,7 @@
 // MindAR(이미지 인식) + three.js(홀로그램 렌더링)
 
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
+import { CONFIG } from './config.js?v=20261117c';
 
 const H = CONFIG.hologram;
 const $ = (id) => document.getElementById(id);
@@ -556,7 +556,7 @@ async function startPreview() {
   $('stage').appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x070b10);
+  scene.background = new THREE.Color(0xd9d4cc);
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 100);
   scene.add(camera);
 
